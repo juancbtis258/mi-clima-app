@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clima Monterrey - Pronóstico en Vivo</title>
+    <title>Pronóstico del Clima - México</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body {
@@ -24,7 +24,26 @@
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
             text-align: center;
         }
-        .city-name { font-size: 26px; font-weight: normal; margin-bottom: 10px; }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        select, input[type="date"] {
+            flex: 1;
+            min-width: 140px;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            font-size: 14px;
+            outline: none;
+        }
+        .city-name { font-size: 26px; font-weight: normal; margin-bottom: 5px; }
+        .date-selected { font-size: 14px; opacity: 0.85; margin-bottom: 10px; text-transform: capitalize; }
+        
         .main-info { display: flex; justify-content: center; align-items: center; gap: 15px; margin: 15px 0; }
         .temp-main { font-size: 48px; font-weight: 300; }
         .weather-icon { font-size: 32px; }
@@ -70,7 +89,7 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
-            max-height: 220px;
+            max-height: 200px;
             overflow-y: auto;
             padding-right: 5px;
         }
@@ -82,13 +101,58 @@
             background: rgba(255, 255, 255, 0.1);
             padding: 8px 12px;
             border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
         }
+        .daily-item:hover { background: rgba(255, 255, 255, 0.25); }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h1 class="city-name" id="city">Monterrey</h1>
+    <!-- Seleccionar Estado y Fecha -->
+    <div class="controls">
+        <select id="stateSelect" onchange="updateWeather()">
+            <!-- Estados de México -->
+            <option value="21.8823,-102.2826">Aguascalientes</option>
+            <option value="32.5149,-117.0382">Baja California (Tijuana)</option>
+            <option value="24.1426,-110.3128">Baja California Sur (La Paz)</option>
+            <option value="19.8439,-90.5255">Campeche</option>
+            <option value="16.7569,-93.1292">Chiapas (Tuxtla Gtz.)</option>
+            <option value="28.6330,-106.0691">Chihuahua</option>
+            <option value="27.4864,-101.0223">Coahuila (Saltillo)</option>
+            <option value="19.2433,-103.7247">Colima</option>
+            <option value="19.4326,-99.1332">CDMX</option>
+            <option value="24.0277,-104.6532">Durango</option>
+            <option value="20.9140,-101.2568">Guanajuato</option>
+            <option value="17.5515,-99.5005">Guerrero (Chilpancingo)</option>
+            <option value="20.1011,-98.7591">Hidalgo (Pachuca)</option>
+            <option value="20.6597,-103.3496">Jalisco (Guadalajara)</option>
+            <option value="19.3552,-99.6549">Estado de México (Toluca)</option>
+            <option value="19.7008,-101.1844">Michoacán (Morelia)</option>
+            <option value="18.9261,-99.2307">Morelos (Cuernavaca)</option>
+            <option value="21.4881,-104.8942">Nayarit (Tepic)</option>
+            <option value="25.6866,-100.3161" selected>Nuevo León (Monterrey)</option>
+            <option value="17.0732,-96.7266">Oaxaca</option>
+            <option value="19.0414,-98.2063">Puebla</option>
+            <option value="20.5888,-100.3899">Querétaro</option>
+            <option value="21.1619,-86.8515">Quintana Roo (Cancún)</option>
+            <option value="22.1565,-100.9855">San Luis Potosí</option>
+            <option value="24.8091,-107.3940">Sinaloa (Culiacán)</option>
+            <option value="29.0729,-110.9559">Sonora (Hermosillo)</option>
+            <option value="17.9892,-92.9281">Tabasco (Villahermosa)</option>
+            <option value="23.7369,-99.1411">Tamaulipas (Cd. Victoria)</option>
+            <option value="19.3182,-98.2375">Tlaxcala</option>
+            <option value="19.5438,-96.9102">Veracruz (Xalapa)</option>
+            <option value="20.9674,-89.5926">Yucatán (Mérida)</option>
+            <option value="22.7709,-102.5832">Zacatecas</option>
+        </select>
+
+        <input type="date" id="datePicker" onchange="updateWeather()">
+    </div>
+
+    <h1 class="city-name" id="cityName">Monterrey</h1>
+    <div class="date-selected" id="dateDisplay">--</div>
     
     <div class="main-info">
         <div class="temp-main" id="currentTemp">--°C</div>
@@ -103,19 +167,15 @@
     </div>
 
     <!-- Cinta horizontal para las horas (06:00 a 24:00) -->
-    <div class="hourly-title">Horario (06:00 - 24:00)</div>
+    <div class="hourly-title" id="hourlyTitle">Horario (06:00 - 24:00)</div>
     <div class="hourly-scroll" id="hourlyContainer"></div>
 
     <!-- Pronóstico a 16 Días -->
-    <div class="daily-title">Pronóstico 16 Días</div>
+    <div class="daily-title">Pronóstico Próximos Días</div>
     <div class="daily-list" id="dailyContainer"></div>
 </div>
 
 <script>
-    // Coordenadas predeterminadas (Monterrey)
-    const LAT = 25.6866;
-    const LON = -100.3161;
-
     const weatherCodes = {
         0: { desc: "Cielo Despejado", icon: "☀️" },
         1: { desc: "Principalmente Despejado", icon: "🌤️" },
@@ -128,56 +188,103 @@
         95: { desc: "Tormenta Eléctrica", icon: "⛈️" }
     };
 
-    async function fetchWeather() {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,surface_pressure,wind_speed_10m&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=16&timezone=auto`;
+    // Configurar límites del selector de fechas (Hoy hasta +15 días)
+    const today = new Date();
+    const maxDate = new Date();
+    maxDate.setDate(today.getDate() + 15);
+
+    const datePicker = document.getElementById('datePicker');
+    datePicker.value = today.toISOString().split('T')[0];
+    datePicker.min = today.toISOString().split('T')[0];
+    datePicker.max = maxDate.toISOString().split('T')[0];
+
+    async function updateWeather() {
+        const select = document.getElementById('stateSelect');
+        const [lat, lon] = select.value.split(',');
+        const stateName = select.options[select.selectedIndex].text.split(' (')[0];
+        const selectedDateStr = datePicker.value;
+
+        document.getElementById('cityName').innerText = stateName;
+
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,surface_pressure,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,surface_pressure&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=16&timezone=auto`;
 
         try {
             const res = await fetch(url);
             const data = await res.json();
 
-            // 1. Datos Actuales
-            const current = data.current;
-            const code = weatherCodes[current.weather_code] || { desc: "Variable", icon: "🌡️" };
-            
-            document.getElementById('currentTemp').innerText = `${Math.round(current.temperature_2m)}°C`;
-            document.getElementById('currentIcon').innerText = code.icon;
-            document.getElementById('currentDesc').innerText = code.desc;
-            document.getElementById('wind').innerText = `💨 ${Math.round(current.wind_speed_10m)} km/h`;
-            document.getElementById('humidity').innerText = `💧 ${current.relative_humidity_2m}%`;
-            document.getElementById('pressure').innerText = `🧭 ${Math.round(current.surface_pressure * 0.750062)} mmHg`;
+            // Buscar el índice del día seleccionado
+            const dayIndex = data.daily.time.indexOf(selectedDateStr);
+            const isToday = selectedDateStr === today.toISOString().split('T')[0];
 
-            // 2. Cinta Horizontal (Horas entre 6:00 y 24:00 de hoy)
+            // Mostrar Fecha Formateada
+            const dateObj = new Date(selectedDateStr + "T00:00:00");
+            document.getElementById('dateDisplay').innerText = dateObj.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+            // 1. Clima General del Día Seleccionado
+            const dailyCode = weatherCodes[data.daily.weather_code[dayIndex]] || { desc: "Variable", icon: "🌡️" };
+            document.getElementById('currentIcon').innerText = dailyCode.icon;
+            document.getElementById('currentDesc').innerText = dailyCode.desc;
+
+            if (isToday) {
+                // Si es hoy, mostramos el clima en vivo
+                document.getElementById('currentTemp').innerText = `${Math.round(data.current.temperature_2m)}°C`;
+                document.getElementById('wind').innerText = `💨 ${Math.round(data.current.wind_speed_10m)} km/h`;
+                document.getElementById('humidity').innerText = `💧 ${data.current.relative_humidity_2m}%`;
+                document.getElementById('pressure').innerText = `🧭 ${Math.round(data.current.surface_pressure * 0.750062)} mmHg`;
+            } else {
+                // Si es un día futuro, mostramos la temperatura Máxima/Mínima estimada
+                const maxT = Math.round(data.daily.temperature_2m_max[dayIndex]);
+                const minT = Math.round(data.daily.temperature_2m_min[dayIndex]);
+                document.getElementById('currentTemp').innerText = `${maxT}° / ${minT}°C`;
+                
+                // Métricas promedio del día
+                const startHour = dayIndex * 24 + 12; // Hora 12:00 del día futuro
+                document.getElementById('wind').innerText = `💨 ${Math.round(data.hourly.wind_speed_10m[startHour])} km/h`;
+                document.getElementById('humidity').innerText = `💧 ${data.hourly.relative_humidity_2m[startHour]}%`;
+                document.getElementById('pressure').innerText = `🧭 ${Math.round(data.hourly.surface_pressure[startHour] * 0.750062)} mmHg`;
+            }
+
+            // 2. Cinta Horizontal por Horas (06:00 a 24:00 del día seleccionado)
             const hourlyContainer = document.getElementById('hourlyContainer');
             hourlyContainer.innerHTML = '';
             
-            data.hourly.time.slice(0, 25).forEach((timeStr, idx) => {
+            const startHourIndex = dayIndex * 24;
+            const dayHours = data.hourly.time.slice(startHourIndex, startHourIndex + 25);
+
+            dayHours.forEach((timeStr, idx) => {
                 const hour = new Date(timeStr).getHours();
+                const globalIndex = startHourIndex + idx;
+
                 if (hour >= 6 || hour === 0) {
-                    const hCode = weatherCodes[data.hourly.weather_code[idx]] || { icon: "☁️" };
+                    const hCode = weatherCodes[data.hourly.weather_code[globalIndex]] || { icon: "☁️" };
                     const item = document.createElement('div');
                     item.className = 'hour-item';
                     item.innerHTML = `
                         <p>${hour === 0 ? '24:00' : (hour < 10 ? '0' + hour : hour) + ':00'}</p>
                         <div style="margin: 4px 0;">${hCode.icon}</div>
-                        <div class="h-temp">${Math.round(data.hourly.temperature_2m[idx])}°C</div>
+                        <div class="h-temp">${Math.round(data.hourly.temperature_2m[globalIndex])}°C</div>
                     `;
                     hourlyContainer.appendChild(item);
                 }
             });
 
-            // 3. Pronóstico de 16 Días
+            // 3. Pronóstico de 16 Días (Lista)
             const dailyContainer = document.getElementById('dailyContainer');
             dailyContainer.innerHTML = '';
 
-            data.daily.time.forEach((dateStr, idx) => {
-                const date = new Date(dateStr + "T00:00:00");
-                const dayName = date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+            data.daily.time.forEach((dStr, idx) => {
+                const dDate = new Date(dStr + "T00:00:00");
+                const dayName = dDate.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
                 const dCode = weatherCodes[data.daily.weather_code[idx]] || { icon: "🌤️" };
                 const maxTemp = Math.round(data.daily.temperature_2m_max[idx]);
                 const minTemp = Math.round(data.daily.temperature_2m_min[idx]);
 
                 const item = document.createElement('div');
                 item.className = 'daily-item';
+                item.onclick = () => {
+                    datePicker.value = dStr;
+                    updateWeather();
+                };
                 item.innerHTML = `
                     <span style="width: 130px; text-align: left; text-transform: capitalize;">${dayName}</span>
                     <span>${dCode.icon}</span>
@@ -191,7 +298,8 @@
         }
     }
 
-    fetchWeather();
+    // Cargar datos iniciales
+    updateWeather();
 </script>
 
 </body>
