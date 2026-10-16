@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clima Monterrey - Pronóstico en Vivo</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body {
+            background-color: #f3efe6;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            color: #ffffff;
+        }
+        .card {
+            background: #738271;
+            border-radius: 12px;
+            padding: 25px;
+            width: 100%;
+            max-width: 550px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            text-align: center;
+        }
+        .city-name { font-size: 26px; font-weight: normal; margin-bottom: 10px; }
+        .main-info { display: flex; justify-content: center; align-items: center; gap: 15px; margin: 15px 0; }
+        .temp-main { font-size: 48px; font-weight: 300; }
+        .weather-icon { font-size: 32px; }
+        .desc-main { font-size: 16px; margin-bottom: 15px; text-transform: capitalize; }
+        
+        .metrics {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            font-size: 13px;
+            opacity: 0.9;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            margin-bottom: 15px;
+        }
+
+        /* Cinta deslizable para horas */
+        .hourly-title { text-align: left; font-size: 14px; margin-bottom: 8px; opacity: 0.8; }
+        .hourly-scroll {
+            display: flex;
+            overflow-x: auto;
+            gap: 15px;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.5) transparent;
+        }
+        .hourly-scroll::-webkit-scrollbar { height: 6px; }
+        .hourly-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.4); border-radius: 10px; }
+        
+        .hour-item {
+            flex: 0 0 auto;
+            text-align: center;
+            width: 50px;
+        }
+        .hour-item p { font-size: 12px; }
+        .hour-item .h-temp { font-size: 14px; font-weight: bold; margin-top: 4px; }
+
+        /* Lista de días */
+        .daily-title { text-align: left; font-size: 14px; margin-bottom: 8px; opacity: 0.8; }
+        .daily-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 220px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        .daily-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px 12px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1 class="city-name" id="city">Monterrey</h1>
+    
+    <div class="main-info">
+        <div class="temp-main" id="currentTemp">--°C</div>
+        <div class="weather-icon" id="currentIcon">🌧️</div>
+    </div>
+    <div class="desc-main" id="currentDesc">Cargando clima...</div>
+
+    <div class="metrics">
+        <span id="wind">💨 -- km/h</span>
+        <span id="humidity">💧 --%</span>
+        <span id="pressure">🧭 -- mmHg</span>
+    </div>
+
+    <!-- Cinta horizontal para las horas (06:00 a 24:00) -->
+    <div class="hourly-title">Horario (06:00 - 24:00)</div>
+    <div class="hourly-scroll" id="hourlyContainer"></div>
+
+    <!-- Pronóstico a 16 Días -->
+    <div class="daily-title">Pronóstico 16 Días</div>
+    <div class="daily-list" id="dailyContainer"></div>
+</div>
+
+<script>
+    // Coordenadas predeterminadas (Monterrey)
+    const LAT = 25.6866;
+    const LON = -100.3161;
+
+    const weatherCodes = {
+        0: { desc: "Cielo Despejado", icon: "☀️" },
+        1: { desc: "Principalmente Despejado", icon: "🌤️" },
+        2: { desc: "Parcialmente Nublado", icon: "⛅" },
+        3: { desc: "Nublado", icon: "☁️" },
+        45: { desc: "Niebla", icon: "🌫️" },
+        51: { desc: "Llovizna Ligera", icon: "🌧️" },
+        61: { desc: "Lluvia Moderada", icon: "🌧️" },
+        80: { desc: "Chubascos", icon: "🌦️" },
+        95: { desc: "Tormenta Eléctrica", icon: "⛈️" }
+    };
+
+    async function fetchWeather() {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,surface_pressure,wind_speed_10m&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=16&timezone=auto`;
+
+        try {
+            const res = await fetch(url);
+            const data = await res.json();
+
+            // 1. Datos Actuales
+            const current = data.current;
+            const code = weatherCodes[current.weather_code] || { desc: "Variable", icon: "🌡️" };
+            
+            document.getElementById('currentTemp').innerText = `${Math.round(current.temperature_2m)}°C`;
+            document.getElementById('currentIcon').innerText = code.icon;
+            document.getElementById('currentDesc').innerText = code.desc;
+            document.getElementById('wind').innerText = `💨 ${Math.round(current.wind_speed_10m)} km/h`;
+            document.getElementById('humidity').innerText = `💧 ${current.relative_humidity_2m}%`;
+            document.getElementById('pressure').innerText = `🧭 ${Math.round(current.surface_pressure * 0.750062)} mmHg`;
+
+            // 2. Cinta Horizontal (Horas entre 6:00 y 24:00 de hoy)
+            const hourlyContainer = document.getElementById('hourlyContainer');
+            hourlyContainer.innerHTML = '';
+            
+            data.hourly.time.slice(0, 25).forEach((timeStr, idx) => {
+                const hour = new Date(timeStr).getHours();
+                if (hour >= 6 || hour === 0) {
+                    const hCode = weatherCodes[data.hourly.weather_code[idx]] || { icon: "☁️" };
+                    const item = document.createElement('div');
+                    item.className = 'hour-item';
+                    item.innerHTML = `
+                        <p>${hour === 0 ? '24:00' : (hour < 10 ? '0' + hour : hour) + ':00'}</p>
+                        <div style="margin: 4px 0;">${hCode.icon}</div>
+                        <div class="h-temp">${Math.round(data.hourly.temperature_2m[idx])}°C</div>
+                    `;
+                    hourlyContainer.appendChild(item);
+                }
+            });
+
+            // 3. Pronóstico de 16 Días
+            const dailyContainer = document.getElementById('dailyContainer');
+            dailyContainer.innerHTML = '';
+
+            data.daily.time.forEach((dateStr, idx) => {
+                const date = new Date(dateStr + "T00:00:00");
+                const dayName = date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+                const dCode = weatherCodes[data.daily.weather_code[idx]] || { icon: "🌤️" };
+                const maxTemp = Math.round(data.daily.temperature_2m_max[idx]);
+                const minTemp = Math.round(data.daily.temperature_2m_min[idx]);
+
+                const item = document.createElement('div');
+                item.className = 'daily-item';
+                item.innerHTML = `
+                    <span style="width: 130px; text-align: left; text-transform: capitalize;">${dayName}</span>
+                    <span>${dCode.icon}</span>
+                    <span><strong>${maxTemp}°C</strong> / ${minTemp}°C</span>
+                `;
+                dailyContainer.appendChild(item);
+            });
+
+        } catch (e) {
+            document.getElementById('currentDesc').innerText = "Error al obtener la información";
+        }
+    }
+
+    fetchWeather();
+</script>
+
+</body>
+</html>
