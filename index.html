@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pronóstico del Clima - México</title>
+    <title>Pronóstico del Clima</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body {
@@ -23,6 +23,34 @@
             max-width: 550px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
             text-align: center;
+        }
+        .search-container {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .search-container input {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            font-size: 14px;
+            outline: none;
+        }
+        .search-container button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 8px;
+            background: #4a5749;
+            color: #fff;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .search-container button:hover {
+            background: #364035;
         }
         .controls {
             display: flex;
@@ -110,10 +138,15 @@
 <body>
 
 <div class="card">
-    <!-- Seleccionar Estado y Fecha -->
+    <!-- Buscador de Ubicación manual -->
+    <div class="search-container">
+        <input type="text" id="cityInput" placeholder="Escribe una ciudad o municipio..." onkeypress="handleKeyPress(event)">
+        <button onclick="searchCustomLocation()">Buscar</button>
+    </div>
+
+    <!-- Seleccionar Estado de MX y Fecha -->
     <div class="controls">
-        <select id="stateSelect" onchange="updateWeather()">
-            <!-- Estados de México -->
+        <select id="stateSelect" onchange="selectState()">
             <option value="21.8823,-102.2826">Aguascalientes</option>
             <option value="32.5149,-117.0382">Baja California (Tijuana)</option>
             <option value="24.1426,-110.3128">Baja California Sur (La Paz)</option>
@@ -166,7 +199,7 @@
         <span id="pressure">🧭 -- mmHg</span>
     </div>
 
-    <!-- Cinta horizontal para las horas (06:00 a 24:00) -->
+    <!-- Cinta horizontal para las horas -->
     <div class="hourly-title" id="hourlyTitle">Horario (06:00 - 24:00)</div>
     <div class="hourly-scroll" id="hourlyContainer"></div>
 
@@ -176,6 +209,10 @@
 </div>
 
 <script>
+    let currentLat = 25.6866;
+    let currentLon = -100.3161;
+    let currentCityName = "Nuevo León";
+
     const weatherCodes = {
         0: { desc: "Cielo Despejado", icon: "☀️" },
         1: { desc: "Principalmente Despejado", icon: "🌤️" },
@@ -188,7 +225,6 @@
         95: { desc: "Tormenta Eléctrica", icon: "⛈️" }
     };
 
-    // Configurar límites del selector de fechas (Hoy hasta +15 días)
     const today = new Date();
     const maxDate = new Date();
     maxDate.setDate(today.getDate() + 15);
@@ -198,53 +234,82 @@
     datePicker.min = today.toISOString().split('T')[0];
     datePicker.max = maxDate.toISOString().split('T')[0];
 
-    async function updateWeather() {
+    function selectState() {
         const select = document.getElementById('stateSelect');
         const [lat, lon] = select.value.split(',');
-        const stateName = select.options[select.selectedIndex].text.split(' (')[0];
+        currentLat = parseFloat(lat);
+        currentLon = parseFloat(lon);
+        currentCityName = select.options[select.selectedIndex].text.split(' (')[0];
+        document.getElementById('cityInput').value = '';
+        updateWeather();
+    }
+
+    function handleKeyPress(e) {
+        if (e.key === 'Enter') {
+            searchCustomLocation();
+        }
+    }
+
+    async function searchCustomLocation() {
+        const query = document.getElementById('cityInput').value.trim();
+        if (!query) return;
+
+        try {
+            const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=es&format=json`;
+            const geoRes = await fetch(geoUrl);
+            const geoData = await geoRes.json();
+
+            if (geoData.results && geoData.results.length > 0) {
+                const place = geoData.results[0];
+                currentLat = place.latitude;
+                currentLon = place.longitude;
+                currentCityName = `${place.name}${place.admin1 ? ', ' + place.admin1 : ''}`;
+                updateWeather();
+            } else {
+                alert("Ubicación no encontrada. Intenta escribirla de otra forma.");
+            }
+        } catch (error) {
+            alert("Error al buscar la ubicación.");
+        }
+    }
+
+    async function updateWeather() {
         const selectedDateStr = datePicker.value;
+        document.getElementById('cityName').innerText = currentCityName;
 
-        document.getElementById('cityName').innerText = stateName;
-
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,surface_pressure,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,surface_pressure&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=16&timezone=auto`;
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${currentLat}&longitude=${currentLon}&current=temperature_2m,relative_humidity_2m,weather_code,surface_pressure,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,surface_pressure&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=16&timezone=auto`;
 
         try {
             const res = await fetch(url);
             const data = await res.json();
 
-            // Buscar el índice del día seleccionado
             const dayIndex = data.daily.time.indexOf(selectedDateStr);
             const isToday = selectedDateStr === today.toISOString().split('T')[0];
 
-            // Mostrar Fecha Formateada
             const dateObj = new Date(selectedDateStr + "T00:00:00");
             document.getElementById('dateDisplay').innerText = dateObj.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-            // 1. Clima General del Día Seleccionado
             const dailyCode = weatherCodes[data.daily.weather_code[dayIndex]] || { desc: "Variable", icon: "🌡️" };
             document.getElementById('currentIcon').innerText = dailyCode.icon;
             document.getElementById('currentDesc').innerText = dailyCode.desc;
 
             if (isToday) {
-                // Si es hoy, mostramos el clima en vivo
                 document.getElementById('currentTemp').innerText = `${Math.round(data.current.temperature_2m)}°C`;
                 document.getElementById('wind').innerText = `💨 ${Math.round(data.current.wind_speed_10m)} km/h`;
                 document.getElementById('humidity').innerText = `💧 ${data.current.relative_humidity_2m}%`;
                 document.getElementById('pressure').innerText = `🧭 ${Math.round(data.current.surface_pressure * 0.750062)} mmHg`;
             } else {
-                // Si es un día futuro, mostramos la temperatura Máxima/Mínima estimada
                 const maxT = Math.round(data.daily.temperature_2m_max[dayIndex]);
                 const minT = Math.round(data.daily.temperature_2m_min[dayIndex]);
                 document.getElementById('currentTemp').innerText = `${maxT}° / ${minT}°C`;
                 
-                // Métricas promedio del día
-                const startHour = dayIndex * 24 + 12; // Hora 12:00 del día futuro
+                const startHour = dayIndex * 24 + 12;
                 document.getElementById('wind').innerText = `💨 ${Math.round(data.hourly.wind_speed_10m[startHour])} km/h`;
                 document.getElementById('humidity').innerText = `💧 ${data.hourly.relative_humidity_2m[startHour]}%`;
                 document.getElementById('pressure').innerText = `🧭 ${Math.round(data.hourly.surface_pressure[startHour] * 0.750062)} mmHg`;
             }
 
-            // 2. Cinta Horizontal por Horas (06:00 a 24:00 del día seleccionado)
+            // Cinta Horizontal (Horas 06:00 a 24:00)
             const hourlyContainer = document.getElementById('hourlyContainer');
             hourlyContainer.innerHTML = '';
             
@@ -268,7 +333,7 @@
                 }
             });
 
-            // 3. Pronóstico de 16 Días (Lista)
+            // Pronóstico 16 Días
             const dailyContainer = document.getElementById('dailyContainer');
             dailyContainer.innerHTML = '';
 
@@ -298,7 +363,6 @@
         }
     }
 
-    // Cargar datos iniciales
     updateWeather();
 </script>
 
