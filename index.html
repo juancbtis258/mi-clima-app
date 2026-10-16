@@ -88,7 +88,6 @@
             margin-bottom: 15px;
         }
 
-        /* Cinta deslizable para horas */
         .hourly-title { text-align: left; font-size: 14px; margin-bottom: 8px; opacity: 0.8; }
         .hourly-scroll {
             display: flex;
@@ -111,7 +110,6 @@
         .hour-item p { font-size: 12px; }
         .hour-item .h-temp { font-size: 14px; font-weight: bold; margin-top: 4px; }
 
-        /* Lista de días */
         .daily-title { text-align: left; font-size: 14px; margin-bottom: 8px; opacity: 0.8; }
         .daily-list {
             display: flex;
@@ -138,13 +136,11 @@
 <body>
 
 <div class="card">
-    <!-- Buscador de Ubicación manual -->
     <div class="search-container">
-        <input type="text" id="cityInput" placeholder="Escribe una ciudad o municipio..." onkeypress="handleKeyPress(event)">
+        <input type="text" id="cityInput" placeholder="Escribe una ciudad, municipio o colonia..." onkeypress="handleKeyPress(event)">
         <button onclick="searchCustomLocation()">Buscar</button>
     </div>
 
-    <!-- Seleccionar Estado de MX y Fecha -->
     <div class="controls">
         <select id="stateSelect" onchange="selectState()">
             <option value="21.8823,-102.2826">Aguascalientes</option>
@@ -199,11 +195,9 @@
         <span id="pressure">🧭 -- mmHg</span>
     </div>
 
-    <!-- Cinta horizontal para las horas -->
     <div class="hourly-title" id="hourlyTitle">Horario (06:00 - 24:00)</div>
     <div class="hourly-scroll" id="hourlyContainer"></div>
 
-    <!-- Pronóstico a 16 Días -->
     <div class="daily-title">Pronóstico Próximos Días</div>
     <div class="daily-list" id="dailyContainer"></div>
 </div>
@@ -251,11 +245,14 @@
     }
 
     async function searchCustomLocation() {
-        const query = document.getElementById('cityInput').value.trim();
-        if (!query) return;
+        const rawQuery = document.getElementById('cityInput').value.trim();
+        if (!rawQuery) return;
+
+        // Extrae solo la parte relevante antes de las comas para evitar fallos por direcciones largas
+        const cleanQuery = rawQuery.split(',')[0].trim();
 
         try {
-            const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=es&format=json`;
+            const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cleanQuery)}&count=1&language=es&format=json`;
             const geoRes = await fetch(geoUrl);
             const geoData = await geoRes.json();
 
@@ -266,10 +263,10 @@
                 currentCityName = `${place.name}${place.admin1 ? ', ' + place.admin1 : ''}`;
                 updateWeather();
             } else {
-                alert("Ubicación no encontrada. Intenta escribirla de otra forma.");
+                alert("Ubicación no encontrada. Intenta buscando el nombre de la ciudad o municipio (ej. 'Monterrey' o 'Culiacán').");
             }
         } catch (error) {
-            alert("Error al buscar la ubicación.");
+            alert("Error al conectar con el servicio de ubicación.");
         }
     }
 
@@ -309,7 +306,6 @@
                 document.getElementById('pressure').innerText = `🧭 ${Math.round(data.hourly.surface_pressure[startHour] * 0.750062)} mmHg`;
             }
 
-            // Cinta Horizontal (Horas 06:00 a 24:00)
             const hourlyContainer = document.getElementById('hourlyContainer');
             hourlyContainer.innerHTML = '';
             
@@ -333,7 +329,6 @@
                 }
             });
 
-            // Pronóstico 16 Días
             const dailyContainer = document.getElementById('dailyContainer');
             dailyContainer.innerHTML = '';
 
